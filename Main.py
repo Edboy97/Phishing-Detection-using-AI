@@ -39,6 +39,7 @@ print(f"Using '{label_col}' as the label column.")
 # --- Separate Features and Label ---
 feature_cols = [c for c in df.columns if c not in [label_col, "URL", "url"]]
 X = df[feature_cols].select_dtypes(include=[np.number])  # numeric features only
+numeric_feature_cols = X.columns.tolist()  
 y_raw = df[label_col]
 
 # --- Encode the Labels ---
@@ -46,13 +47,32 @@ le = LabelEncoder()
 y = le.fit_transform(y_raw)  # e.g., benign=0, phishing=1
 
 # --- Feature Selection ---
-selector = SelectKBest(score_func=f_classif, k=min(30, X.shape[1]))  # top 10 features
-X_new = selector.fit_transform(X, y)
-selected_features = np.array(feature_cols)[selector.get_support()]
+# compute ANOVA F-scores for all numeric features
+f_scores, p_values = f_classif(X, y)
 
-print("Top Selected Features:")
-for feature in selected_features:
-    print("-", feature)
+# configure the "sweet spot" (change these values to tune difficulty)
+FS_MIN, FS_MAX = 100.0, 200.0
+
+mask = (f_scores > FS_MIN) & (f_scores < FS_MAX)
+
+if mask.sum() == 0:
+    # fallback: select top-k features if no feature meets the range
+    k = min(80, X.shape[1])
+    selector = SelectKBest(score_func=f_classif, k=k)
+    X_new = selector.fit_transform(X, y)
+    selected_idx = selector.get_support(indices=True)
+    selected_features = np.array(numeric_feature_cols)[selected_idx]
+    selected_scores = selector.scores_[selected_idx]
+    print(f"No features in F-score range ({FS_MIN}, {FS_MAX}). Falling back to top {k} features.")
+else:
+    # keep only features whose f-score is within the requested range
+    selected_features = np.array(numeric_feature_cols)[mask]
+    selected_scores = f_scores[mask]
+    X_new = X[selected_features].values
+
+print("Selected Features (ANOVA F-scores):")
+for feat, score in sorted(zip(selected_features, selected_scores), key=lambda x: -x[1]):
+    print(f"- {feat}: {score:.4f}")
 
 # --- Train/Test Split ---
 X_train, X_test, y_train, y_test = train_test_split(
