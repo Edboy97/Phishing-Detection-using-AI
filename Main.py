@@ -84,6 +84,7 @@ for fs_min, fs_max in F_SCORE_RANGES:
     # Train/Test Split
     X_train, X_test, y_train, y_test = train_test_split(
         X_selected, y, test_size=0.3, random_state=42, stratify=y
+        # 3,429 URLs are used to train
     )
     
     # --- Model 1: Logistic Regression (LR) ---
@@ -176,7 +177,6 @@ for idx, metric in enumerate(metrics_to_plot):
 
 plt.tight_layout()
 plt.savefig('model_comparison_expanded.png', dpi=300, bbox_inches='tight')
-print(f"\n Visualization saved as 'model_comparison_expanded.png'")
 plt.show()
 
 # --- Best Model Analysis ---
